@@ -127,7 +127,11 @@ ppp_maryland_loans %>%
   )
 ```
 How many loans does Anne Arundel County have?  Put your answer in the space below.
+<<<<<<< HEAD
 **Answer**
+=======
+**Answer** 17336
+>>>>>>> f9f3884f80e7938a945ab0a01e93da73bccbf559
 
 ### Task 7
 **Task** Run the following codeblock to group the ppp_maryland_loans dataframe by the county for each loan, count the number of loans in that group, and then sort so the county with the highest number of loans is listed first.
