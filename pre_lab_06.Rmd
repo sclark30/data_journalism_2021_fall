@@ -93,7 +93,7 @@ View(lender_types)
 **Task** Run the following code to load and clean up the data
 
 ```{r}
-lender_types <- read_csv("tabula-PPP_Report_Public_210531-508.csv", skip=1, col_names=c("type", "count", "approved", "net_dollars"))
+lender_types <- read_csv("tabula-PPP_Report_Public_210531-508.csv", skip=3, col_names=c("type", "count", "approved", "net_dollars"))
 lender_types <- lender_types %>% mutate(net_dollars=as.numeric(parse_number(net_dollars)))
 View(lender_types)
 ```
