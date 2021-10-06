@@ -53,7 +53,7 @@ Let's load it into R, and in doing so we'll skip the first two rows and add our 
 **Task** Write code to read the CSV file into a dataframe called `international_migration`. As in the pre_lab, you may have to skip 1 or more rows and you may want to supply easier to use column names that use underscores.
 
 ```{r}
-# Write the code to load the CSV file here
+md_migration <- read_csv("data/tabula-md-statistical-handbook.csv", skip=2, col_names=c( "Jurisdiction", "YR2011", "YR2012", "YR2013", "YR2014", "YR2015", "YR2016", "YR2017", "YR2018", "YR2019", "Total"))
 ```
 
 Add a column for the type of migration ("international") and populate it:
@@ -61,32 +61,39 @@ Add a column for the type of migration ("international") and populate it:
 **Task** Write the code to add a `migration_type` column to the data and populate it with the value of "international"
 
 ```{r}
-# Write the code to add the column here
+md_migration<-md_migration %>%
+  mutate(migration_type="international")
+ 
 ```
 
 ## Answer questions
 
 **Q1** Which region and county/city below the state level accounted for the largest percentage of international migration overall?  You'll need to add and populate columns representing percent of total using `mutate`.
-**A1** [write your answer here]
+**A1** Suburban Washington Region 
 
 ```{r}
-# Write the code to produce your answer here
+md_migration %>%
+  mutate(migration_percentage=(Total/198996)) %>%
+  arrange(desc(migration_percentage))
+  
 
 ```
 
 **Q2** Write a sentence or two that describes the data you produced in A1. Try to convey the most important idea.
-**A2** [write your answer here]
+**A2** From July 2011 - July 2019, the Suburban Washington Region has had the highest percentage of international migration in Maryland. 
 
 **Q3** Which region & jurisdiction had the biggest percentage change for international migration between July 2018 and July 2017? The formula for percentage change is easy to remember: (New-Old)/Old.
-**A3** [write your answer here]
+**A3** Calvert with a -0.76% change.
 
 ```{r}
-# Write the code to produce your answer here
+md_migration %>%
+  mutate(migration_change=((YR2018-YR2017)/YR2017)) %>%
+  arrange(migration_change)
 
 ```
 
 **Q4** What's your best guess as to why these declines occurred, and in those area in particular?
-**A4** [write your answer here]
+**A4** I would guess that there was a decline in available job opportunities, which I would assume would deter international migration to the area. It seems this area is a nicer area and has a low unemployment rate, so perhaps they are more focused on tourism and driving in funds to the community, and less on helping those who may be impoverished. 
 
 
 ## Back to Tabula
@@ -102,7 +109,8 @@ Let's load it into R, and in doing so we'll skip the first two rows and add our 
 **Task** Write code to read the CSV file into a dataframe called `domestic_migration`. As in the pre_lab, you may have to skip 1 or more rows and you may want to supply easier to use column names that use underscores. Your work on the international file should serve as a guide.
 
 ```{r}
-# Write the code to load the CSV file here
+domestic_migration <- read_csv("data/tabula-md-statistical-handbook-domestic.csv", skip=2, col_names =c  ("Jurisdiction", "YR2011", "YR2012", "YR2013", "YR2014", "YR2015", "YR2016", "YR2017", "YR2018", "YR2019", "Total"))
+
 ```
 
 Add a column for the type of migration ("domestic") and populate it:
@@ -110,25 +118,33 @@ Add a column for the type of migration ("domestic") and populate it:
 **Task** Write the code to add a `migration_type` column to the data and populate it with the value of "domestic"
 
 ```{r}
-# Write the code to add the column here
+domestic_migration<-domestic_migration %>%
+  mutate(migration_type="domestic")
+  
 ```
 
 ## Answer questions
 **Q5** Which Maryland individual jurisdiction saw the largest net decrease in domestic migration overall?
-**A5** [write your answer here]
+**A5** Baltimore City
 
 ```{r}
-# Write the code to produce your answer here
+domestic_migration %>%
+  arrange(Total)
+ 
+  
 
 ```
 
 **Q6** How many regions & jurisdictions had net positive migration for July 2017, July 2018 and July 2019 (not just individually but all three together)?
-**A6** [write your answer here]
+**A6** 14
 
 ```{r}
-# Write the code to produce your answer here
+domestic_migration %>%
+  filter(YR2017>0, YR2018>0, YR2019>0)
+
+            
 
 ```
 
 **Q7** How would you describe this data? Is there a county or region that stands out, and why?
-**A7** [write your answer here]
+**A7** Frederick seems to stand out the most in this entire dataset, with a total net migration of 11310. Overall in this dataset, Baltimore county jurisdictions are all increasing at a large domestic migration rate. This could be due to the location of Maryland being right on the coast, as well as Maryland is a more liberal state, and I think people are more willing to migrate here, given the political climate is more welcoming to diversity.
