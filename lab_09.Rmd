@@ -16,6 +16,10 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Load libraries and establish settings
 
 **Task** Create a codeblock and load appropriate packages and settings for this lab.
+```{r}
+library(tidyverse)
+library(tidycensus)
+```
 
 ## Questions
 
@@ -30,11 +34,44 @@ You MUST do the following things when answering this question:
   * adds a small circle (called a "point") on the line for dates that had loans. And to the left of each circle/point, shows the number of loans on that date.  I didn't show you how to do this in the prelab, so do some web sleuthing to figure it out! 
 
 Basically, your chart should look like this image, which will appear when you run the codeblock below. 
+```{r}
+west_virginia_ppp <- read_rds("data/lab_09.rds")
+
+
+top_wv_loans <- west_virginia_ppp %>%
+  group_by(date_approved)%>%
+  summarise(
+    total_loans=n()
+  ) %>%
+  filter(date_approved>="2020-04-03" & date_approved <= "2020-04-30"
+          ) 
+
+top_wv_loans %>%
+  ggplot() + 
+  geom_line(aes(x=date_approved, y=total_loans)) +
+  scale_x_date(date_breaks = "1 day") +
+  theme(
+    axis.text.x = element_text(angle = 45,  hjust=1)
+  )+
+  labs(
+    title="West Virginia with Most PPP Loans",
+    x = "total loans",
+    y = "date approved",
+    caption = "source: SBA PPP loan database"
+    )+
+  geom_point(aes(x=date_approved, y=total_loans))+
+  geom_text(aes(x=date_approved, y=total_loans, label=total_loans,nudge_y="up"))
+
+  
+  
+
+
+```
 
 ```{r}
 knitr::include_graphics(rep("images/chart_1.png"))
 ```
-**A1.** 
+**A1.** April 28th, 2020.
 
 **Q2.** What are the top 10 states that got the most PPP loans per 100,000 people? You MUST do the following things when answering this question:
 
@@ -45,6 +82,31 @@ knitr::include_graphics(rep("images/chart_1.png"))
 * Make the bars on the chart blue! I didn't show you how to do this in the prelab, so do some web sleuthing to figure it out.  
 
 **A2.** 
+
+```{r}
+total_ppp_loans <- read_csv("data/state_ppp_all.csv")
+
+ACS_variables <- load_variables(2019, "acs5", cache = TRUE)
+
+census_api_key("174317d189a39d41b0ca921dd80d3965c5086e3f", overwrite=TRUE)
+
+allstate_pop <- get_acs(geography = "state",
+              variables = c(statepop = "B01001_001"),
+              year = 2019)
+
+allstate_pop%>%
+   (inner_join(total_ppp_loans, by=c("name" = "state")))
+  
+
+
+
+total_ppp_loans %>%
+  ggplot()+
+  geom_bar(aes(x=project_county_name, weight=total_loans))
+
+
+
+```
 
 **Q3.**  A scatterplot is a type of chart that helps us see relationships between two variables. One variable goes on the x axis, the other on the y axis.  For each row/observation in our data, a scatterplot puts a circle (or a "point") where the two variables intersect on a grid. 
 
@@ -66,7 +128,20 @@ To answer those questions, make a codeblock and do the following:
 4. Make a scatterplot. I didn't show you how to do this, so look it up! 
 5. In the answer space below, describe what you see and answer the questions posed above.  In a general sense, what do you think this means?  
 
-**A3.**  
+**A3.**  If we could the NA columns as 0, than the majority of people who asked for loans did not have them forgiven. If we ignore that in our data visualization, then it appears that most people who asked for loans of 25,000 or under, were forgiven of them fully. However, I do think we have to take into consideration the NA column, because now it leaves room for more investigation. Why is the loan_forgiveness column NA? Are those people still repaying off their loans and why were they not qualified for forgiveness?
 
+I think the loans not being forgiven in general could mean the business either had shady practices or more lkely, the loan approval process can easily be messed up and small businesses can unfortunately suffer.
+
+```{r}
+wv_ppp_loans%>%
+  filter(amount == "25000") %>%
+  arrange(desc(amount))
+
+ggplot(data=wv_ppp_loans, aes(x=initial_approval_amount, y=forgiveness_amount))+ geom_point()
+
+NOTE: So I tried to resave this data into a new dataframe with just the loans under 25,000 but then it wouldn't show me any data, so I pulled from the dataframe I filtered to answer questions.
+
+
+```
 
 -30-
