@@ -15,11 +15,30 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Load libraries and establish settings
 
+```{r}
+library(tidyverse)
+library(sf)
+library(janitor)
+library(tidycensus)
+library(tigris)
+library(lubridate)
+census_api_key("174317d189a39d41b0ca921dd80d3965c5086e3f", overwrite=TRUE)
+
+
+This is turned in late but I had a trouble with it and spent time this weekend trying to figure it out so. anyways there are still errors ahead but I tried the best I could  to at least figure out the code.
+
+
+```
+
 **Task** Create a codeblock and load appropriate packages and settings for this lab. You'll need tidyverse, tidycensus, janitor, sf and tigris, and you'll also need to install your census API key.
 
 ## Load data
 
 **Task** Create a codeblock and load the WV slice of the PPP loan data, which is in the data folder and is called lab_11.rds.
+
+```{r}
+wv_ppp_loans <- read_rds("data/lab_11.rds")
+```
 
 ## Questions 
 
@@ -34,7 +53,54 @@ Then answer these questions:
 * Based on the map, what region of the state appears to have gotten more loans in this industry? What geographic pattern do you notice in the data?
 * Based on the table, what county got the highest total loan amount? What was the total amount per 100K population, the total amount of loans (not population adjusted), how many loans were there, and what's the population?
 
-**A1.** 
+```{r}
+counties <- counties() 
+
+glimpse(counties)
+
+wv_counties <- counties%>%
+  filter(STATEFP=="54")
+
+wv_mining_loans <- wv_ppp_loans %>%
+  filter(str_detect(naics_code, "^21")) %>%
+  group_by(project_county_name) %>%
+  summarise(total_loans=n(), total_amount=sum(amount))
+
+wv_county_population<- get_acs(geography = "county", 
+              variables = c(population = "B01001_001"), 
+              state = "WV",
+              geometry = TRUE)
+
+wv_county_population<- wv_county_population %>%
+  rename(COUNTY = NAME) %>%
+  mutate(COUNTY = toupper(str_remove_all(COUNTY,", West Virginia|County"))) %>%
+  mutate(COUNTY = str_trim(COUNTY,side="both")) %>%
+  rename(population = estimate) %>%
+  select(COUNTY, population, geometry)
+
+wv_loans_per_100k <- wv_county_population %>%
+  left_join(wv_mining_loans, by=c("COUNTY" = "project_county_name")) %>%
+  mutate(total_loans = replace_na(total_loans,0)) %>%
+  mutate(wv_loans_per_100k = total_loans/population*100000) %>%
+  arrange(desc(total_loans))
+  
+ggplot() + 
+  geom_sf(data=wv_loans_per_100k, aes(fill=wv_loans_per_100k)) + 
+  theme_minimal() +
+  scale_fill_viridis_b(option="magma",trans = "log") 
+
+wv_counties %>%
+  ggplot() + 
+  geom_sf() + 
+  theme_minimal()
+  
+
+
+```
+
+**A1.** Based on the map, the central/northeastern region of WV appears to have gotten the most loans. In the southern region, there seems to be a large concentration of the average amount of loans (around 20) per 100k.
+
+Based on the table, Harrison County got the most amount of loans with a population of 14020, they received 59 total loans with a percentage of 9919762.98% for the total amount and the wv_per_100k at 86.882252%.
 
 **Q2.** You want to understand WHY the spatial pattern you saw above exists.  So you grab a shapefile with the latitude and longitude coordinates of every mine permit in West Virginia from the state Department of Environmental Protection. 
 
@@ -50,9 +116,44 @@ What spatial pattern do you see? How does it compare to the spatial pattern in t
 
 **A2.**
 
+
+```{r}
+wv_environmental_protection <- st_read("https://tagis.dep.wv.gov/arcgis/rest/services/WVDEP_enterprise/mining_reclamation/MapServer/0/query?where=1%3D1&outFields=*&geometry=&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outSR=4326&f=json")
+
+wv_permit_expire<- wv_environmental_protection %>% 
+  mutate(
+    expiredate = as.POSIXct(expiredate, format="%Y/%m/%d")
+) %>%
+  filter(expiredate>="2021-09-01") 
+  
+wv_counties %>%
+  ggplot() + 
+  geom_sf(data=wv_permit_expire, aes(fill = wv_permit_expire)) + 
+  theme_minimal()
+  
+  
+  
+I tried to figure out how to get past the AES error but couldn't
+
+
+```
+
 **Q3.** To confirm the spatial comparison you identified in question 2, let's create a new map that layers the mine location points on top of our PPP choropleth map we created in question 1. What do you notice about the amount of mines in the county that has the highest total loan amount per 100K?
 
 **A3.**
+
+```{r}
+ggplot() + 
+  geom_sf(data=wv_loans_per_100k, aes(fill=wv_loans_per_100k)) + 
+  geom_sf(data= wv_permit_expire, aes(fill=wv_permit_expire))+
+  theme_minimal() +
+  scale_fill_viridis_b(option="magma",trans = "log") 
+  
+  
+Same with the aesthetics error here, but I'm pretty sure I otherwise had the code right to put the map together since we are just layering.
+
+
+```
 
 **Q4.** Starting from the original WV ppp dataframe, examine the loans to companies in "Mining, Quarrying, and Oil and Gas Extraction" in the county with the highest total loan amount per 100K (you can use the table you created in question 1 to identify the top county)?
 * What single company accounts for the biggest chunk of the total loan amount? 
@@ -61,4 +162,24 @@ What spatial pattern do you see? How does it compare to the spatial pattern in t
 * What's your hypothesis for why a company in their specific industry would need to seek a PPP loan during the pandemic?
 
 **A4.**
+Harrison is the county with the highest total loan amount per 100k and the Thrasher group inc accounts for the highest loan amount in Harrison county. Based on their NAICS code, they are in engineering services which includes services like engineering design, heating, industrial and mechnical engineering related services as well. According to the data they saved 441 jobs.
+
+I would guess they might need a PPP loan due to a lack of companies needing engineering services. I would guess since most people were out of work, a lot of companies such down or weren't fully staffed and did not prioritze or need engineering work or design work, as they were struggling to even be able to keep themselves in business.
+
+
+```{R}
+wv_ppp_loans %>%
+  filter(project_county_name=="HARRISON") %>%
+  group_by(name)%>%
+  arrange(desc(amount))
+
+  
+  
+
+
+
+
+```
+
+
 -30-
