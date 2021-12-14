@@ -17,24 +17,181 @@ The deliverable will be this R Markdown notebook and a data folder that you will
 
 **Task** Create a codeblock and load appropriate packages and settings for this assignment.
 
+```{r}
+library(tidyverse)
+library(tidycensus)
+library(janitor)
+library(rvest)
+library(sf)
+library(tigris)
+library(ggthemes)
+
+```
+
+
+NOTE FROM SHANNON: Thank you for all your help this semester! I really did struggle through this class, but I appreciate how understanding and helpful you were through the entire semester. While this profile really isn't perfect by any means, I tried my best to take what I learned this semester and apply it. Thank you for teaching me the basics of coding and although it will probably never come naturally to me, if you weren't as kind, patient and always willing to help - I genuinely think I would have failed this class. You are so appreciated more than you know! Thank you for not giving up on me!!
+
+
 ## Initial Exploration
 
-**Q1.**. Write R code that generates some basic descriptive statistics that allows you to describe the applications from your state. This code should produce results that describe the data in different ways: how many applications there are, along with ways to understand the typical and most frequent values for columns you find interesting or newsworthy. You should produce at least five (5) descriptive statistics and write up a summary of the data using them.
 
 **A1.** 
+Hennepin County in Minnesota currently holds the highest amount of loans at 51,670 followed by Ramsey County at 16,934 and Dakota at 12,610. Hennepin and Ramsey both appear to be more urban counties, with large industries and buildings, and booming inner city. Dakota appears to be more of an rural area with focuses on water and soil conservation. The county also is named after the Dakota Sioux tribes who inhabited the area. The minimum amount of loans in Minnesota currently stands at a loan for $445.00 in Aitkins County. The maximum loan amount in Minnesota is also held in Aitkins county at 56084.00. Hennepin County has the largest number of loans at 51670. This isn't very surprising, as Hennepin county is the state's most populated city.
+
+
+```{r}
+#load in Minnesota ppp data
+
+mn_data <- read_rds("~/Documents/GitHub/data_journalism_2021_fall/State Profile/Data/mn_ppp.rds")
+
+#grouping MN data by project_county_name and arranging to see sum of total loans per county
+
+mn_data %>%
+  group_by(project_county_name)%>%
+  summarise(total_loans=n()) %>%
+  arrange(desc(total_loans))
+
+#finding minimum loan amount in MN
+
+mn_data %>%
+  group_by(project_county_name) %>%
+  summarise(min(amount))
+
+#finding maximum loan amount in MN
+
+mn_data %>%
+  group_by(project_county_name) %>%
+  arrange(desc(amount)) %>%
+  summarise(max(amount)) 
+
+#finding total count of loans per county
+mn_data %>%
+  group_by(project_county_name) %>%
+  count(total_loans=n()) %>%
+  arrange(desc(n)) 
+
+#finding average loan amount per county
+mn_data %>%
+  group_by(project_county_name) %>%
+  arrange(desc(amount)) %>%
+  summarise(mean(amount))
+ 
+  
+  
+  
+  
+
+
+```
 
 
 ## Geographic Analysis
 
 **Q2.** Write R code that examines geographic patterns for PPP loans in your state, using Census population information to calculate a per-capita figure for the state and counties and zip codes. Then, make a county map using ggplot showing the per-capita data and a zip code map showing the difference from the statewide per-capita figure. Describe the most interesting or newsworthy findings based on your exploration.
 
-**A2.** 
+**A2.** Okay so my code got a little funky, but what I found from the top five zip codes was that it seems the most PPP loans are going to nicer/more urban areas. In the top 5 zip codes, the cities include Austin, Saint Paul, Burnsville, Hennepin County and Minneapolis - all of which are fairly nicer areas in MN and more populated. I think the most interesting data from this set is that those who are getting PPP loans in these areas probably have jobs that skew towards more of the typical business/office industry and are not necessarily receiving loans for rural farming industries. 
+```{r}
+#load in census_api_key
+census_api_key("174317d189a39d41b0ca921dd80d3965c5086e3f", overwrite=TRUE)
+
+#read in mn data
+mn_data
+
+#filter mn data to zip5
+mn_data <- mn_data %>%
+  mutate(zip5 = str_sub(zip, 1, 5))
+
+mn_zip_data <- mn_data %>%
+  group_by(zip5)%>%
+  count(total_loan_amount=n())%>%
+  arrange(desc(n))
+
+#reading in ACS variables so that I can search for data by zip code
+ACS_variables <- load_variables(2019, "acs5", cache = TRUE)
+
+#pulling MN zipcode data from the us ppp dataset
+mn_state_zip <-get_acs(geography = "zcta",
+              variables = "B01001_001",
+              state="MN",
+              year = 2019)
+
+#joining MN zipcode dataset with total mn_data zips
+combined_mn_zips <- mn_data %>%
+  inner_join(mn_state_zip, by=c('zip5'='GEOID'))
+  
+
+#pulling MN county data from total counties
+counties <- counties()
+
+mn_counties <- counties %>%
+  filter(STATEFP == "27")
+
+
+mn_counties %>%
+  ggplot() + 
+  geom_sf() + 
+  theme_minimal()
+
+ggplot() + 
+  geom_sf(data=mn_state_zip) + 
+  theme_minimal()
+
+#creating geographic map on ggplot
+ggplot() + 
+  geom_sf(data=mn_state_zip, aes(fill=mn_state_zip)) + 
+  theme_minimal() +
+  scale_fill_viridis_b(option="magma",trans = "log")
+
+
+
+```
 
 ## Lender Analysis
 
 **Q3.** Write R code to examine which lenders had the most approved applications in your state (and include summary statistics such as total amount and average loan amount). Generate dataframes that show the number and total amount of all loans and undisbursed loans per lender. For those lenders who had any undisbursed loans, make a graphic showing the relationship between the total amount of loans and the total undisbursed amount. Describe the most noticeable outlier lenders on that graphic below.
 
-**A3.** 
+**A3.** The Village Bank and Trust Association stands out as the largest outlier on the chart. The association only had 4 lenders, but had a large undisbursed amount of 4139700. After a little research, the organization's front page boasts that the bank provides small businesses with PPP loans, as well as help with PPP loan forgiveness. It's interesting that only 4 small businesses trusted the organization with their money, and that the bank never even ended up disbursing the money out. I wonder if the businesses ending up failing prior to the distrubtion of the money, or if the bank ended up not being super trustworthy.
+
+```{r}
+#creating new dataframe to hold undisbursed lender data and number of loans per lender
+mn_lender_undisbursed_data <- mn_data %>%
+  group_by(lender)%>%
+  summarise(undisbursed_amount = sum(undisbursed_amount)) %>%
+  arrange(desc(undisbursed_amount)) %>%
+  head(10)
+
+
+#finding total loans count per lender
+lender_count <- mn_data %>%
+  group_by(lender) %>%
+  count(total_loans=n()) %>%
+  arrange(desc(n))
+
+#dataframe to hold disbursed lender data and # of loans per lender 
+mn_disbursed_data <- mn_data %>%
+  group_by(lender) %>%
+  summarise(current_approval_amount= sum(current_approval_amount),
+                  total_loans=n()) %>%
+  arrange(desc(current_approval_amount))
+
+#plotting undisbursed loans for top ten lenders 
+
+mn_lender_undisbursed_data %>%
+  ggplot() +
+  geom_bar(aes(x=reorder(lender,undisbursed_amount), weight=total_loans)) +
+  coord_flip() +
+  theme_economist()+
+  labs(
+    title="Mn Undisbursed Lender Loans",
+    x = "Lender Undisbursed Amount",
+    y = "Total Loans",
+    caption = "source: SBA PPP Loan Database"
+    
+  )
+    
+
+
+```
 
 
 ## Industry Analysis
@@ -46,9 +203,31 @@ Does the distribution of PPP applications by the top 10 industries (by number of
 Create a county-level map showing the differences between the PPP applications and the Census business data for one of the top 10 industry codes. You can do this either using ggplot or Datawrapper (if the latter, publish that map and include the URL below).
 
 **A4.** 
+I'm sorry I just got so stuck on this part.
+
+```{r}
+#reading in new dataframe for MN businesses and filtering by top ten businesses
+
+mn_businesses <- mn_data %>%
+  group_by(naics_code)%>%
+  summarise(naics_code=n()) %>%
+  arrange(desc(naics_code)) %>%
+  head(10)
+
+#using naics code 6920, finding industry totals per county
+
+mn_industry<- mn_data%>%
+  filter(naics_code==6920) %>%
+  group_by(project_county_name)
+
+
+
+
+
+```
 
 ## Summary
 
 **Q5.** What is the most promising story idea that you have found during this exploration? How would you approach reporting it out and what other information/data would you need to do that? What would be the minimum story you could get from this, and what would be the maximum story?
 
-**A5.**
+**A5.** I think the most promising story idea I have found during this exploration lies in the industry data. There is a strange amount of undisbursed laon amounts, among seemingly low numbers of loans in certain counties. To further my reporting, I would specfially like to look into the outliers in the data - starting with Village Bank as well as Capital Plus Financial, to look at the differences in the loan approval process, as well as the specifics behind the financial institution. I would also look into the area these businesses are located in, focusing in on the demographic analysis in these areas. Do these institutions tend to approve loans and target certain people groups? Are they located in rural or urban areas and how often do they approve loans? Then coming in contact with the people who were approved for these loans would be the next step to hear their stories about the loan process, as well as conducting interviews with individuals who work at the organizations. I think the minimum story I could get from this would just fall under something such as - not a ton of businesses applied in the area for SBA loans from a specfic bank and they never ended up using the loans (or ended up being faulty organizations.) The maximum story could fall under something such as loan approval bias, or fradulent/discrimintatory behavior from the lenders. 
